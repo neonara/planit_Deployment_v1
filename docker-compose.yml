@@ -31,14 +31,14 @@ services:
     env_file:
       - .env
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-root}
-      POSTGRES_DB: ${POSTGRES_DB:-planit_db}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-root}
+      POSTGRES_DB: ${DB_NAME:-planit_db}
       POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=trust"
     networks:
       - network
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}" ]
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}" ]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -55,6 +55,9 @@ services:
       - static_files:/app/staticfiles
     env_file:
       - .env
+    environment:
+      - FRONTEND_URL=${FRONTEND_URL:-http://57.129.79.137}
+      - BACKEND_URL=${BACKEND_URL:-http://57.129.79.137}
     networks:
       - network
     extra_hosts:
@@ -131,8 +134,10 @@ services:
       - "3100:3000"
     environment:
       - NODE_ENV=production
-      - NEXT_PUBLIC_API_URL=http://backend:8000
-      - NEXT_PUBLIC_WS_URL=ws://localhost:8081
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://57.129.79.137:8080/api}
+      - NEXT_PUBLIC_WS_URL=${NEXT_PUBLIC_WS_URL:-ws://57.129.79.137:8080}
+      - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-http://57.129.79.137}
+      - NEXT_PUBLIC_APP_NAME=Planit
       - PORT=3000
     depends_on:
       backend:
@@ -178,7 +183,6 @@ volumes:
   media_files:
   static_files:
   postgres_data:
-
 
 networks:
   network:

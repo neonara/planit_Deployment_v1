@@ -1,4 +1,4 @@
-# PlanIt Application - Ubuntu VPS Deployment Guide
+## PlanIt Application - Ubuntu VPS Deployment Guide
 
 A comprehensive task management and planning application built with Django (Backend), Next.js (Frontend), PostgreSQL, Redis, and Nginx. This guide is specifically designed for deployment on Ubuntu VPS servers.
 
@@ -191,6 +191,9 @@ sudo chown -R $USER:$USER /opt/planit
 ### 2. Configure Environment for VPS
 
 ```bash
+# Create environment file from example
+cp .env.example .env
+
 # Edit environment file with nano
 nano .env
 
@@ -241,9 +244,53 @@ curl http://YOUR_VPS_IP:8081
 
 ## ⚙️ Environment Configuration (Ubuntu VPS)
 
+### Example Environment File (.env.example)
+
+Create a `.env.example` file in your project root with the following content:
+
+```bash
+# Example environment variables for Planit
+
+# General settings
+DEBUG=False
+DJANGO_SECRET_KEY=your-secret-key
+ALLOWED_HOSTS=localhost,127.0.0.1
+
+# Database settings
+DB_HOST=your-database-host
+DB_PORT=5432
+DB_NAME=your-database-name
+DB_USER=your-database-user
+DB_PASSWORD=your-database-password
+
+POSTGRES_DB=your-database-name
+POSTGRES_USER=your-database-user
+POSTGRES_PASSWORD=your-database-password
+
+# Email settings
+EMAIL_HOST=your-email-host
+EMAIL_PORT=587
+EMAIL_HOST_USER=your-email@example.com
+EMAIL_HOST_PASSWORD=your-email-password
+
+# Redis settings
+REDIS_URL=redis://your-redis-host:6379/0
+
+# Celery settings
+CELERY_BROKER_URL=redis://your-redis-host:6379/0
+CELERY_RESULT_BACKEND=redis://your-redis-host:6379/0
+
+# Frontend .env settings
+NEXT_PUBLIC_API_URL=http://your-vps-ip:port/api
+NEXT_PUBLIC_WS_URL=ws://your-vps-ip:port
+NODE_ENV=production
+NEXT_PUBLIC_APP_NAME=AppName
+NEXT_PUBLIC_APP_URL=http://your-vps-ip
+```
+
 ### VPS-Specific Environment Variables
 
-Create or modify the `.env` file in the project root with VPS-specific settings:
+For your actual `.env` file, update the example values with your VPS-specific settings:
 
 ```bash
 # Production Mode (always False for production VPS)
@@ -281,6 +328,17 @@ SECURE_SSL_REDIRECT=False  # Set to True if using HTTPS
 SECURE_HSTS_SECONDS=0      # Set to 31536000 if using HTTPS
 SECURE_BROWSER_XSS_FILTER=True
 SECURE_CONTENT_TYPE_NOSNIFF=True
+
+# Celery Configuration
+CELERY_BROKER_URL=redis://redis:6379/0
+CELERY_RESULT_BACKEND=redis://redis:6379/0
+
+# Frontend Configuration
+NEXT_PUBLIC_API_URL=http://YOUR_VPS_IP:8080/api
+NEXT_PUBLIC_WS_URL=ws://YOUR_VPS_IP:8080
+NODE_ENV=production
+NEXT_PUBLIC_APP_NAME=PlanIt
+NEXT_PUBLIC_APP_URL=http://YOUR_VPS_IP:8081
 ```
 
 ### VPS-Specific Configuration Steps
@@ -336,6 +394,10 @@ cd /path/to/planit
 
 # Set correct permissions
 chmod +x start-services.sh
+
+# Create .env file from example template
+cp .env.example .env
+nano .env  # Edit with your specific settings
 ```
 
 ### Step 2: Configure Services
@@ -692,401 +754,7 @@ sudo usermod -aG docker $USER
 
 # Then log out and back in
 
-````
-
-#### 5. Memory/Resource Issues
-
-```bash
-# Check available resources
-free -h
-df -h
-
-# Clean up Docker resources
-docker system prune -a
-docker volume prune
-````
-
-### Service-Specific Debugging
-
-#### Backend Issues
-
-```bash
-# Check Django logs
-docker-compose logs backend
-
-# Run Django commands
-docker-compose exec backend python manage.py check
-docker-compose exec backend python manage.py migrate
-
-# Access Django shell
-docker-compose exec backend python manage.py shell
-```
-
-#### Frontend Issues
-
-```bash
-# Check Next.js logs
-docker-compose logs frontend
-
-# Rebuild frontend
-docker-compose build frontend
-docker-compose up -d frontend
-```
-
-#### Database Issues
-
-```bash
-# Check database status
-docker-compose exec postgres pg_isready
-
-# Check database connections
-docker-compose exec postgres psql -U postgres -c "SELECT * FROM pg_stat_activity;"
-
-# Reset database (CAUTION: This will delete all data!)
-docker-compose down
-docker volume rm planit_postgres_data
-docker-compose up -d postgres
-```
-
-## 🔒 Security Considerations (Ubuntu VPS)
-
-### Ubuntu VPS Security Hardening
-
-#### Initial VPS Security Setup
-
-```bash
-# Update system packages
-sudo apt update && sudo apt upgrade -y
-
-# Create a non-root user (if not already done)
-sudo adduser planit-admin
-sudo usermod -aG sudo planit-admin
-sudo usermod -aG docker planit-admin
-
-# Configure SSH key authentication (recommended)
-# On your local machine, generate SSH key:
-# ssh-keygen -t rsa -b 4096 -C "your_email@example.com"
-# Copy public key to VPS:
-# ssh-copy-id planit-admin@YOUR_VPS_IP
-
-# Disable root login and password authentication
-sudo nano /etc/ssh/sshd_config
-# Set: PermitRootLogin no
-# Set: PasswordAuthentication no
-# Set: PubkeyAuthentication yes
-sudo systemctl restart sshd
-```
-
-#### Ubuntu VPS Firewall (UFW) Configuration
-
-```bash
-# Reset UFW to defaults
-sudo ufw --force reset
-
-# Set default policies
-sudo ufw default deny incoming
-sudo ufw default allow outgoing
-
-# Allow SSH (CRITICAL - don't lock yourself out!)
-sudo ufw allow ssh
-sudo ufw allow 22/tcp
-
-# Allow HTTP and HTTPS
-sudo ufw allow 80/tcp
-sudo ufw allow 443/tcp
-
-# Allow PlanIt application ports
-sudo ufw allow 8081/tcp  # Main application (Nginx)
-sudo ufw allow 8080/tcp  # Backend API (optional)
-sudo ufw allow 3100/tcp  # Frontend direct (optional)
-
-# Block direct database access from outside
-# sudo ufw deny 5433/tcp  # PostgreSQL (already blocked by default)
-# sudo ufw deny 6380/tcp  # Redis (already blocked by default)
-
-# Enable UFW
-sudo ufw enable
-
-# Check status and rules
-sudo ufw status verbose
-sudo ufw status numbered
-```
-
-#### Production Security Checklist for VPS
-
-##### Application Security
-
-- [ ] **Django Secret Key**: Generate new 50+ character secret key
-- [ ] **DEBUG Mode**: Set DEBUG=False in production
-- [ ] **Database Passwords**: Use strong 32+ character passwords
-- [ ] **Email Passwords**: Use App Passwords, not regular passwords
-- [ ] **ALLOWED_HOSTS**: Include only your VPS IP and domain
-- [ ] **Environment File**: Secure .env file permissions (600)
-
-##### Network Security
-
-- [ ] **UFW Firewall**: Properly configured and enabled
-- [ ] **SSH Security**: Key-based authentication only
-- [ ] **Root Access**: Disabled for remote login
-- [ ] **Port Scanning**: Only necessary ports open
-- [ ] **Rate Limiting**: Configured in Nginx
-- [ ] **Fail2Ban**: Consider installing for brute force protection
-
-##### SSL/TLS Setup for Production VPS
-
-```bash
-# Option 1: Let's Encrypt (Free SSL - Recommended)
-# Install Certbot
-sudo apt install -y certbot python3-certbot-nginx
-
-# Stop nginx container temporarily
-docker-compose stop nginx
-
-# Get SSL certificate (replace with your domain)
-sudo certbot certonly --standalone -d your-domain.com -d www.your-domain.com
-
-# Create SSL directory and copy certificates
-sudo mkdir -p /opt/planit/nginx/ssl
-sudo cp /etc/letsencrypt/live/your-domain.com/fullchain.pem /opt/planit/nginx/ssl/
-sudo cp /etc/letsencrypt/live/your-domain.com/privkey.pem /opt/planit/nginx/ssl/
-sudo chown -R $USER:$USER /opt/planit/nginx/ssl/
-
-# Update nginx configuration for HTTPS
-# Edit nginx/conf.d/default.conf to include SSL configuration
-
-# Restart nginx
-docker-compose up -d nginx
-
-# Setup auto-renewal
-echo "0 12 * * * /usr/bin/certbot renew --quiet && docker-compose restart nginx" | sudo crontab -
-```
-
-```bash
-# Option 2: Self-signed certificates (Testing only)
-mkdir -p nginx/ssl
-openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-  -keyout nginx/ssl/nginx.key \
-  -out nginx/ssl/nginx.crt \
-  -subj "/C=US/ST=State/L=City/O=Organization/CN=your-domain.com"
-```
-
-#### VPS Monitoring and Security Tools
-
-```bash
-# Install fail2ban for brute force protection
-sudo apt install -y fail2ban
-
-# Configure fail2ban for SSH
-sudo cp /etc/fail2ban/jail.conf /etc/fail2ban/jail.local
-sudo nano /etc/fail2ban/jail.local
-# Enable SSH jail and set bantime, maxretry
-
-# Start fail2ban
-sudo systemctl enable fail2ban
-sudo systemctl start fail2ban
-
-# Install htop and iotop for monitoring
-sudo apt install -y htop iotop netstat-nat
-
-# Check for open ports
-sudo netstat -tlnp
-
-# Monitor system logs
-sudo tail -f /var/log/auth.log  # SSH attempts
-sudo tail -f /var/log/syslog    # System logs
-```
-
-#### File Permissions and Ownership
-
-```bash
-# Set secure permissions for application files
-cd /opt/planit
-sudo chown -R $USER:$USER .
-chmod 700 .env                    # Environment file
-chmod 755 start-services.sh       # Startup script
-chmod -R 755 nginx/               # Nginx configuration
-chmod 600 nginx/ssl/*             # SSL certificates (if any)
-
-# Set proper permissions for Docker volumes
-sudo chown -R $USER:docker /opt/planit/data/
-chmod -R 750 /opt/planit/data/
-```
-
-#### Regular Security Maintenance
-
-```bash
-# Create a security maintenance script
-cat > /opt/planit/security-maintenance.sh << 'EOF'
-#!/bin/bash
-echo "Running security maintenance..."
-
-# Update system packages
-sudo apt update && sudo apt upgrade -y
-
-# Update Docker images
-cd /opt/planit
-docker-compose pull
-
-# Restart services with new images
-docker-compose up -d
-
-# Clean up unused Docker resources
-docker system prune -f
-
-# Check for failed login attempts
-echo "Recent failed SSH attempts:"
-sudo grep "Failed password" /var/log/auth.log | tail -10
-
-# Check UFW status
-sudo ufw status
-
-echo "Security maintenance completed!"
-EOF
-
-chmod +x /opt/planit/security-maintenance.sh
-
-# Run weekly via cron
-echo "0 2 * * 1 /opt/planit/security-maintenance.sh >> /var/log/planit-maintenance.log 2>&1" | crontab -
-```
-
-## 💾 Backup & Recovery
-
-### Automated Backup Script
-
-Create `backup.sh`:
-
-```bash
-#!/bin/bash
-BACKUP_DIR="/path/to/backups"
-DATE=$(date +%Y%m%d_%H%M%S)
-
-# Create backup directory
-mkdir -p "$BACKUP_DIR"
-
-# Backup database
-docker-compose exec -T postgres pg_dump -U postgres planit_db > "$BACKUP_DIR/db_backup_$DATE.sql"
-
-# Backup media files
-docker run --rm -v planit_media_files:/data -v "$BACKUP_DIR":/backup ubuntu tar czf /backup/media_backup_$DATE.tar.gz -C /data .
-
-# Backup configuration
-cp .env "$BACKUP_DIR/env_backup_$DATE"
-cp docker-compose.yml "$BACKUP_DIR/docker-compose_backup_$DATE.yml"
-
-echo "Backup completed: $DATE"
-```
-
-### Recovery Process
-
-```bash
-# Restore database
-docker-compose exec -T postgres psql -U postgres planit_db < /path/to/backup.sql
-
-# Restore media files
-docker run --rm -v planit_media_files:/data -v /path/to/backup:/backup ubuntu tar xzf /backup/media_backup.tar.gz -C /data
-
-# Restart services
-docker-compose restart
-```
-
-### Scheduled Backups
-
-Add to crontab (`crontab -e`):
-
-```bash
-# Daily backup at 2 AM
-0 2 * * * /path/to/planit/backup.sh >> /var/log/planit_backup.log 2>&1
-```
-
-## 📈 Performance Optimization
-
-### Production Optimizations
-
-```bash
-# Optimize Docker images
-docker-compose build --no-cache
-
-# Configure resource limits in docker-compose.yml
-# Add under each service:
-deploy:
-  resources:
-    limits:
-      memory: 512M
-      cpus: '0.5'
-```
-
-### Database Optimization
-
-```sql
--- Connect to database and run optimizations
-docker-compose exec postgres psql -U postgres -d planit_db
-
--- Update statistics
-ANALYZE;
-
--- Vacuum database
-VACUUM;
-```
-
-## 📞 Support & Contact
-
-### Getting Help
-
-- **Documentation**: Check this README first
-- **Logs**: Always check service logs for errors
-- **Issues**: Create GitHub issues for bugs
-- **Community**: Join project discussions
-
-### Useful Commands Reference
-
-```bash
-# Quick status check
-docker-compose ps && docker-compose logs --tail=50
-
-# Quick restart
-docker-compose restart
-
-# Emergency stop
-docker-compose down
-
-# Clean slate restart
-docker-compose down -v && docker-compose up -d
-
-# Resource usage
-docker stats --no-stream
-```
-
 ---
 
-## 📝 Additional Notes
-
-### Development vs Production
-
-- This configuration is optimized for production deployment
-- For development, consider using local environment setup
-- Always test changes in a staging environment first
-
-### Updating the Application
-
-```bash
-# Pull latest images
-docker-compose pull
-
-# Restart services with new images
-docker-compose up -d
-
-# Run any pending migrations
-docker-compose exec backend python manage.py migrate
-```
-
-### Scaling Considerations
-
-- For high-traffic deployments, consider horizontal scaling
-- Use load balancers for multiple backend instances
-- Implement database replication for read-heavy workloads
-- Consider using managed services for PostgreSQL and Redis
-
----
-
-_Last updated: June 25, 2025_
-_Version: 1.0.0_
+_Last updated: July 2, 2025_
+_Version: 1.0.1_
